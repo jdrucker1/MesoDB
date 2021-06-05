@@ -207,7 +207,6 @@ class mesoDB(object):
             
         # Check if the  day file exists, if true check if override parameter is true
         if self.day_file_exists(day, month, year) == True:
-            print('check')
             # If override parameter is true, get data from mesowest and append any new data to existing day file (i.e. 01.pkl)
             if override == True:
                 
@@ -225,14 +224,12 @@ class mesoDB(object):
                 print('{:02d}.pkl already exists'.format(day))
                 
         else:
-            print('what')
             # if it's the last day of the month (i.e. Jan), make month2 and day2 the first day of the next month (i.e. Feb) to get all the data from the last day of the original month (i.e. Jan)
             if day+1 > dayLimit and datetime.datetime.now().month != month:
                 mesoData = token.timeseries(start="{:04d}{:02d}{:02d}{:04d}".format(year,month,day,0), end = "{:04d}{:02d}{:02d}{:04d}".format(year2,month2,day2,0),state='CA',vars='fuel_moisture')
 
             # If the next day is in the same month
             elif day+1 <= dayLimit:
-                print("{:04d}{:02d}{:02d}{:04d}".format(year,month,day+1,0))
                 mesoData = token.timeseries(start="{:04d}{:02d}{:02d}{:04d}".format(year,month,day,0), end = "{:04d}{:02d}{:02d}{:04d}".format(year,month,day+1,0),state='CA',vars='fuel_moisture')
         
             self.get_and_save(mesoData,day,month,year,siteList,fuelList,datesList,latList,lonList,stateList)
@@ -358,10 +355,7 @@ class mesoDB(object):
             for j in month:
                 multipleDays = False
                 for k in day:
-                    thisMonth = self.which_month(j)
-                    print(i)
-                    print(thisMonth)
-                    df_local = pd.read_pickle(self.folder_path+"/"+str(i)+"/"+thisMonth+'.pkl')
+                    df_local = pd.read_pickle("{}/{:04d}/{:02d}/{:02d}.pkl".format(self.folder_path,i,j,day))
                     df_local['Latitude'] = df_local['Latitude'].astype(float)
                     df_local['Longitude'] = df_local['Longitude'].astype(float)
                     df_local['dateTime'] = pd.to_datetime(df_local['dateTime'])
@@ -395,10 +389,10 @@ class mesoDB(object):
 if __name__ == '__main__':
     
     # Put your token here
-    m = Meso(token='YourMesowestTokenGoesHere')
+    m = Meso(token='YourTokenGoesHere')
     meso = mesoDB()
     #meso.main(m,currentData = True) 
-    meso.main(token=m,days=[1],months=[12],years=[2020])
+    meso.main(token=m,days=[1],months=[1,2,3,4,5],years=[2021])
     #meso.main(token=m,days=[31],months=[5],years=[2020])
     
     
