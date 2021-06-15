@@ -13,7 +13,12 @@ import os.path as osp
 import os
 import pandas as pd
 import pytz
+from utils import *
 
+# Mesowest Database Class Error
+#
+class mesoDBError(Exception):
+    pass
 
 # Mesowest Database Class
 #
@@ -21,90 +26,83 @@ class mesoDB(object):
     
     # mesoDB constructor
     #
-    def __init__(self, mesoToken, folder_path=osp.join(osp.abspath(os.getcwd()),"mesoDB")):
+    def __init__(self, mesoToken=None, folder_path=osp.join(osp.abspath(os.getcwd()),"mesoDB")):
         self.folder_path = folder_path
-        self.token = Meso(token=mesoToken)
-        self.exists_here()
+        self.stations_path = osp.join(self.folder_path,"stations.pkl")
+        self.exists_here(mesoToken)
+        self.meso = Meso(token=self.tokens[0])
         self.init_params()
         
-        
        
-    # Checks if mesoDB directory exists. If not, it is created
-    #    
-    def exists_here(self):
+    # Checks if mesoDB directory and their tokens exists. If not, it is created
+    #
+    # @ Param token - token to be used or added to the tokens list
+    def exists_here(self, token):
         if osp.exists(self.folder_path):
             logging.info("mesoDB - Existent DB path {}".format(self.folder_path))
+            tokens_path = osp.join(self.folder_path,'.tokens')
+            if osp.exists(tokens_path):
+                with open(tokens_path,'r') as f:
+                    tokens = f.read()
+                self.tokens = [t for t in tokens.split('\n') if t != '']
+            else:
+                self.tokens = []
         else:
             os.makedirs(self.folder_path)
-            
-    
-    # Checks if year folder exists, if not, make it
-    #
-    # @ Param year - 
-    def year_exists(self,year):
-        if osp.exists("{}/{:04d}".format(self.folder_path,year)):
-            logging.info("mesoDB/year - Existent DB path {}/{}".format(self.folder_path,year))
-        else:
-            os.makedirs("{}/{}".format(self.folder_path,year))
-        
-    # Checks if month folder exists, if not, make it
-    #
-    def julian_exists(self,day,month,year):
-        julianDay = datetime.datetime(year, month, day, tzinfo=datetime.timezone.utc).timetuple().tm_yday
-        if osp.exists("{}/{:04d}/{:03d}".format(self.folder_path,year,day)):
-            logging.info("mesoDB/year/month - Existent DB path {}/{:04d}/{:03d}".format(self.folder_path,year,julianDay))
-            return True
-        else:
-            os.makedirs("{}/{:04d}/{:03d}".format(self.folder_path,year,day))
-            return False
-    
-    # Checks if day file exits, if so returns true, else false
-    #
-    def hour_file_exists(self,hour,day,year):
-        if osp.exists("{}/{:4d}/{:03d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,day,year,day,hour)):
-            logging.info("mesoDB - Existent DB path {}/{:04d}/{:03d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,day,year,day,hour))
-            return True
-        else:
-            return False
-                
+            self.tokens = []
+        if token != None and not token in self.tokens:
+            self.tokens.append(token)  
+        if not len(self.tokens):
+            raise mesoDBError('no tokens were provided or existent in the database.')
+        with open(osp.join(self.folder_path,'.tokens'),'w') as f:
+            for t in self.tokens:
+                f.write(t+'\n')
 
     # Initialize parameters for get_data
     #   
     def init_params(self):
+        # parameters for getting data
         self.params = {'year': [int(datetime.datetime.now().year)], 'month': [int(datetime.datetime.now().month)], 'day': [0],
-                    'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None, 'makeFile': False, 'override': False}
-        
-    
-    # Checks if given value is an array, if not, make it into one
+                    'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None, 'makeFile': False}
+        # general parameters
+        self.current_length = 60 # length of current data in minutes
+
+    # Checks if year folder exists, if not, make it
     #
-    # @ Param value - given variable
-    #
-    def to_array(self,value):
-        if isinstance(value,list):
-            value = np.array(value)
-        elif isinstance(value, int):
-            value = np.array(list([value]))
-            
-        return value
-    
-    
-    # Returns the number of days in a given month
-    # 
-    # @ Param month - specific month
-    # @ Param year - specific year
-    #
-    def daysInMonth(self,month,year):
-        if month == 1 or month == 3 or month == 5 or month == 7 or month == 8 or month == 10 or month == 12:
-            dayLimit = 31
-        elif month == 2:
-            if year % 4 == 0:
-                dayLimit = 29
-            else:
-                dayLimit = 28
+    # @ Param year - integer with the year
+    def year_exists(self,year):
+        path = osp.join(self.folder_path,"{:04d}".format(year))
+        if osp.exists():
+            logging.info("mesoDB/year - Existent DB path {}".format(path))
         else:
-            dayLimit = 30
-        return dayLimit
-            
+            os.makedirs(path)
+        
+    # Checks if month folder exists, if not, make it
+    #
+    # @ Param utc_datetime - UTC datetime object
+    def julian_exists(self, utc_datetime):
+        jday = utc_datetime.timetuple().tm_yday
+        path = osp.join(self.folder_path,"{:04d}".format(utc_datetime.year),"{:03d}".format(jday))
+        if osp.exists(path):
+            logging.info("mesoDB/year/month - Existent DB path {}".format(path))
+            return True
+        else:
+            os.makedirs(path)
+            return False
+    
+    # Checks if day file exits, if so returns true, else false
+    #
+    # @ Param utc_datetime - UTC datetime object
+    def hour_file_exists(self, utc_datetime):
+        year = utc_datetime.year
+        jday = utc_datetime.timetuple().tm_yday
+        hour = utc_datetime.hour
+        path = osp.join(self.folder_path,"{:4d}".format(year),"{:03d}".format(jday),"{:04d}{:03d}{:02d}.pkl".format(year, jday, hour))
+        if osp.exists(path):
+            logging.info("mesoDB - Existent DB path {}".format(path))
+            return True
+        else:
+            return False
     
     # Save data from mesowest to the local database
     #
@@ -182,16 +180,9 @@ class mesoDB(object):
     # If the user specifies the days they want, gets that day's data
     #
     #
-    # @ Param token - mesowest api variable
-    # @ Param day - user specified day
-    # @ Param dayLimit - how many days are in the user specified month
-    # @ Param month - user specified month
-    # @ Param year - user specified year
+    # @ Param utc_datetime - datetime of request
     #
-    def getDailyData(self,token,day,dayLimit,month,year):
-    
-        override = self.params.get('override')
-    
+    def getDailyData(self, utc_datetime):
         # If it's the last day of the year, set month to 1 and year + 1. 
         if day == dayLimit:
             if month == 12:
@@ -305,15 +296,14 @@ class mesoDB(object):
     # @ Param days - the days the user wants to add to their local database
     # @ Param months - the months the user wants to add to their local database
     # @ Param years - the years the user wants to add to their local database
-    # @ Param currentData - If true, get the last hours data, else get the historical data
     #
-    def main(self,days=[0],months=[int(datetime.datetime.now().month)],years=[int(datetime.datetime.now().year)],currentData=False):
+    def main(self,days=[0],months=[int(datetime.datetime.now().month)],years=[int(datetime.datetime.now().year)]):
 
         token = self.token
         if currentData == False:
-            for year in self.to_array(years):
+            for year in to_array(years):
                 self.year_exists(year)
-                for month in self.to_array(months):
+                for month in to_array(months):
                     daysInMonth = self.daysInMonth(month,year)
                     days = self.to_array(days)
                     if datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc) <= datetime.datetime.now(datetime.timezone.utc):
@@ -333,38 +323,14 @@ class mesoDB(object):
             self.year_exists(year)
             self.month_exists(year, month)
             self.getHourly(token)
-
-
-    # Check coordinates and return properly coordinates
-    #
-    # @ Param latitude1,latitude2,longitude1,longitude2 - geographical coordinates in WGS84 degrees
-    #
-    def check_coords(self,latitude1, latitude2, longitude1, longitude2):
-        valid_coords = lambda y1,y2,x1,x2: -90 < y1 < 90 and -90 < y2 < 90 and -180 < x1 < 180 and -180 < x2 < 180
-        if any([latitude1 is None, latitude2 is None, longitude1 is None, longitude2 is None]) or not valid_coords(latitude1,latitude2,longitude1,longitude2):
-            return None,None,None,None
-        if latitude1 < latitude2:
-            lat1 = latitude1
-            lat2 = latitude2
-        else:
-            lat1 = latitude2
-            lat2 = latitude1
-        if longitude1 < longitude2:
-            lon1 = longitude1
-            lon2 = longitude2
-        else:
-            lon1 = longitude2
-            lon2 = longitude1
-        return lat1,lat2,lon1,lon2
-    
     
     # Gets mesowest data from local database
     #
     def get_db(self): 
         # Load parameters for getting data
-        years = self.to_array(self.params.get('year'))
-        months = self.to_array(self.params.get('month'))
-        days = self.to_array(self.params.get('day'))
+        years = to_array(self.params.get('year'))
+        months = to_array(self.params.get('month'))
+        days = to_array(self.params.get('day'))
         latitude1 = self.params.get('latitude1')
         latitude2 = self.params.get('latitude2')
         longitude1 = self.params.get('longitude1')
@@ -372,37 +338,33 @@ class mesoDB(object):
         makeFile = self.params.get('makeFile')
         
         # Check if the coordinates are valid
-        lat1,lat2,lon1,lon2 = self.check_coords(latitude1, latitude2, longitude1, longitude2)
+        lat1,lat2,lon1,lon2 = check_coords(latitude1, latitude2, longitude1, longitude2)
         
         # Load station.pkl data and create an empty dataframe which will hold all the data requested
-        df_sites = pd.read_pickle("{}/{}".format(self.folder_path,"station.pkl"))
+        df_sites = pd.read_pickle(self.stations_path)
         df_new = pd.DataFrame([])
         # Look at each year given
         for year in years:
             # Look at each month given
             for month in months:
-                # Day reset to make sure days is unique for each month
-                days = self.to_array(self.params.get('day'))
                 # If "0" value provided, assume all days for a given month are queried
                 if days[0] == 0:
-                    days = list(np.arange(0,self.daysInMonth(month,year))+1)
+                    month_days = range(1,daysInMonth(month,year)+1)
+                else:
+                    month_days = days
                 # Look at each day given
-                for day in days:
+                for day in month_days:
                     # If the datetime given is in the future, don't do anything
-                    #print(year,month,day)
-                    if datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc) <= datetime.datetime.now(datetime.timezone.utc):
-                        # Gets the julian day from the day, month, and year
-                        jday = datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc).timetuple().tm_yday
+                    user_datetime = datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc)
+                    if user_datetime <= datetime.datetime.now(datetime.timezone.utc):
+                        # if julian folder does not exist, get daily data for that day
+                        if not self.julian_exists(user_datetime):
+                            self.getDailyData(user_datetime)
                         # Look at each hour on a given day
                         for hour in np.arange(0,24):
-                            
                             # If the file does not exist, get it and add it to the df_new dataframe
                             if self.hour_file_exists(hour,jday,year) == False:
-                                temp = self.params.get('override')
-                                self.params['override'] = True
-                                self.getDailyData(self.token,day,self.daysInMonth(month,year),month,year)
-                                self.params['override'] = temp
-                            
+                                
                             # Get the queried data
                             df_local = pd.read_pickle("{}/{:04d}/{:03d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,jday,year,jday,hour))
                             df_local['datetime'] = pd.to_datetime(df_local['datetime'])
