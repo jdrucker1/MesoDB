@@ -50,9 +50,9 @@ class mesoDB(object):
     # Checks if month folder exists, if not, make it
     #
     def julian_exists(self,day,month,year):
-        day = datetime.datetime(year, month, day, tzinfo=datetime.timezone.utc).timetuple().tm_yday
+        julianDay = datetime.datetime(year, month, day, tzinfo=datetime.timezone.utc).timetuple().tm_yday
         if osp.exists("{}/{:04d}/{:03d}".format(self.folder_path,year,day)):
-            logging.info("mesoDB/year/month - Existent DB path {}/{:04d}/{:03d}".format(self.folder_path,year,day))
+            logging.info("mesoDB/year/month - Existent DB path {}/{:04d}/{:03d}".format(self.folder_path,year,julianDay))
             return True
         else:
             os.makedirs("{}/{:04d}/{:03d}".format(self.folder_path,year,day))
@@ -73,38 +73,20 @@ class mesoDB(object):
     def init_params(self):
         self.params = {'year': [int(datetime.datetime.now().year)], 'month': [int(datetime.datetime.now().month)], 'day': [0],
                     'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None, 'makeFile': False, 'override': False}
-    
-    
-    # Returns the name of the month based on numerical value
-    #
-    def which_month(self,month):
-        if month == 1:
-            return 'Jan'
-        elif month == 2:
-            return 'Feb'
-        elif month == 3:
-            return 'Mar'
-        elif month == 4:
-            return 'Apr'
-        elif month == 5:
-            return 'May'
-        elif month == 6:
-            return 'Jun'
-        elif month == 7:
-            return 'Jul'
-        elif month == 8:
-            return 'Aug'
-        elif month == 9:
-            return 'Sep'
-        elif month == 10:
-            return 'Oct'
-        elif month == 11:
-            return 'Nov'
-        elif month == 12:
-            return 'Dec'
-        else:
-            print('Not a valid month (1-12)')
         
+    
+    # Checks if given value is an array, if not, make it into one
+    #
+    # @ Param value - given variable
+    #
+    def to_array(self,value):
+        if isinstance(value,list):
+            value = np.array(value)
+        elif isinstance(value, int):
+            value = np.array(list([value]))
+            
+        return value
+    
     
     # Returns the number of days in a given month
     # 
@@ -130,17 +112,17 @@ class mesoDB(object):
     # @ Param day - julian calander day (0-365)
     # @ Param year - given year
     #
-    def save_to_DB(self,df_new,hour,day,year):
+    def save_to_DB(self,df_new,hour,julianDay,year):
         
         # If the day file does not exist, make the folder and save the data
-        if self.hour_file_exists(hour,day,year) == False:
-            df_new.to_pickle("{}/{:04d}/{:03d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,day,year,day,hour))
+        if self.hour_file_exists(hour,julianDay,year) == False:
+            df_new.to_pickle("{}/{:04d}/{:03d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,julianDay,year,julianDay,hour))
         # If the day file already exists, add the new data to the original file
         else:
             # If the day file already exists, append the new data to the original file
-            df_local = pd.read_pickle("{}/{:04d}/{:02d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,day,year,day,hour))
+            df_local = pd.read_pickle("{}/{:04d}/{:02d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,julianDay,year,julianDay,hour))
             df_new_local = pd.concat([df_local,df_new]).drop_duplicates().reset_index(drop=True)
-            df_new_local.to_pickle("{}/{:04d}/{:02d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,day,year,day,hour))
+            df_new_local.to_pickle("{}/{:04d}/{:02d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,julianDay,year,julianDay,hour))
     
     
     # Pull fuel moisture data from mesowest dictionary, update the station.pkl file, and save the mesowest data to pickle files
@@ -153,7 +135,7 @@ class mesoDB(object):
     def get_and_save(self,mesowestData,day,month,year):
         # Fills data from mesowest into lists
         data_file = pd.DataFrame([])
-        day = datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc).timetuple().tm_yday
+        jDay = datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc).timetuple().tm_yday
         for stData in mesowestData['STATION']:
             df = pd.DataFrame.from_dict(stData['OBSERVATIONS'])
             df.columns = ['datetime','fm10']
@@ -179,7 +161,7 @@ class mesoDB(object):
             hourData = data_file[data_file['datetime'].dt.hour == hour]
             if len(hourData) > 0:
                 hourData = hourData.reset_index()
-                self.save_to_DB(hourData,hour,day,year)
+                self.save_to_DB(hourData,hour,jDay,year)
     
     
     # If the user does not specify the days they want, gets the last month's data
@@ -188,9 +170,6 @@ class mesoDB(object):
     # @ Param dayLimit - how many days are in the user specified month
     # @ Param month - user specified month
     # @ Param year - user specified year
-    # @ Param siteList - list to hold the names of the site
-    # @ Param fuelList - list to hold fuel moisture data
-    # @ Param datesList - list to hold datetime data
     #
     def getMonthlyData(self,token,dayLimit,month,year):
         
@@ -208,9 +187,6 @@ class mesoDB(object):
     # @ Param dayLimit - how many days are in the user specified month
     # @ Param month - user specified month
     # @ Param year - user specified year
-    # @ Param siteList - list to hold the names of the site
-    # @ Param fuelList - list to hold fuel moisture data
-    # @ Param datesList - list to hold datetime data
     #
     def getDailyData(self,token,day,dayLimit,month,year):
     
@@ -245,10 +221,12 @@ class mesoDB(object):
                 elif day+1 <= dayLimit:
                     mesoData = token.timeseries(start="{:04d}{:02d}{:02d}{:04d}".format(year,month,day,0), end = "{:04d}{:02d}{:02d}{:04d}".format(year,month,day+1,0),state='CA',vars='fuel_moisture')
                 
+                # Save data to local database
                 self.get_and_save(mesoData,day,month,year)
                     
             else:
-                print('{:02d}/{:02d}/{:04d} file already exists'.format(month,day,year))
+                julianDay = datetime.datetime(year, month, day, tzinfo=datetime.timezone.utc).timetuple().tm_yday
+                logging.info("{}/{:04d}/{:03d} data already exists".format(self.folder_path,year,julianDay))
                 
         else:
             # if it's the last day of the month (i.e. Jan), make month2 and day2 the first day of the next month (i.e. Feb) to get all the data from the last day of the original month (i.e. Jan)
@@ -323,27 +301,39 @@ class mesoDB(object):
     
     
     # Gets fuel data from Mesowest and makes it into a pickle or csv file
+    #
+    # @ Param days - the days the user wants to add to their local database
+    # @ Param months - the months the user wants to add to their local database
+    # @ Param years - the years the user wants to add to their local database
+    # @ Param currentData - If true, get the last hours data, else get the historical data
+    #
     def main(self,days=[0],months=[int(datetime.datetime.now().month)],years=[int(datetime.datetime.now().year)],currentData=False):
 
         token = self.token
         if currentData == False:
-            for year in years:
+            for year in self.to_array(years):
                 self.year_exists(year)
-                for month in months:
+                for month in self.to_array(months):
                     daysInMonth = self.daysInMonth(month,year)
-                    if days[0] == 0:
-                        self.getMonthlyData(token,daysInMonth,month,year)
-                    elif len(days) > 0:
-                        for day in days:
+                    days = self.to_array(days)
+                    if datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc) <= datetime.datetime.now(datetime.timezone.utc):
+                        if days[0] == 0:
+                            self.getMonthlyData(token,daysInMonth,month,year)
+                        elif len(days) > 0:
+                            for day in days:
                                 self.getDailyData(token,day,daysInMonth,month,year)
+                        else:
+                            print('Invalid Day Input')
                     else:
-                        print('Invalid Day Input')
+                        userDate = datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc)
+                        logging.info("{:02d}/{:02d}/{:04d} invalid date".format(userDate.month,userDate.day,userDate.year))
                     
         else:
             print('Note to editor: Need to set up for hourly')
             self.year_exists(year)
             self.month_exists(year, month)
             self.getHourly(token)
+
 
     # Check coordinates and return properly coordinates
     #
@@ -367,14 +357,6 @@ class mesoDB(object):
             lon2 = longitude1
         return lat1,lat2,lon1,lon2
     
-    
-    def to_array(self,value):
-        if isinstance(value,list):
-            value = np.array(value)
-        elif isinstance(value, int):
-            value = np.array(list([value]))
-            
-        return value
     
     # Gets mesowest data from local database
     #
@@ -416,9 +398,7 @@ class mesoDB(object):
                             
                             # If the file does not exist, get it and add it to the df_new dataframe
                             if self.hour_file_exists(hour,jday,year) == False:
-                                print('is False')
-                                print(hour,jday,year)
-                                temp = self.params.get('makeFile')
+                                temp = self.params.get('override')
                                 self.params['override'] = True
                                 self.getDailyData(self.token,day,self.daysInMonth(month,year),month,year)
                                 self.params['override'] = temp
@@ -438,11 +418,12 @@ class mesoDB(object):
                                 df_new = df_new.reset_index()
                     else:
                         print("{} is not valid".format(datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc)))
+        
+        # Clean up the indexing
         df_new = df_new.reset_index()
         df_new = df_new.drop(['level_0','index'],axis=1)
         
-        
-        print('making file')
+        # If makeFile variable is true, create a oickle file with the requested data
         if makeFile == True:
             df_new.to_pickle("{:04d}{:02d}{:02d}{:02d}.pkl".format(datetime.datetime.now().year,datetime.datetime.now().month,datetime.datetime.now().day,datetime.datetime.now().hour))
         
@@ -454,7 +435,7 @@ class mesoDB(object):
 if __name__ == '__main__':
     
     # Example
-    meso = mesoDB('6a972fea32984b4cb3e21350b76adc26')
+    meso = mesoDB('YourTokenGoesHere')
     #meso.main(m,currentData = True) 
     #meso.main(days=[0],months=[12],years=[2020])
     #meso.main(days=[0],months=[5],years=[2020])
