@@ -368,13 +368,21 @@ class mesoDB(object):
         return lat1,lat2,lon1,lon2
     
     
+    def to_array(self,value):
+        if isinstance(value,list):
+            value = np.array(value)
+        elif isinstance(value, int):
+            value = np.array(list([value]))
+            
+        return value
+    
     # Gets mesowest data from local database
     #
     def get_db(self): 
         # Load parameters for getting data
-        years = self.params.get('year')
-        months = self.params.get('month')
-        days = self.params.get('day')
+        years = self.to_array(self.params.get('year'))
+        months = self.to_array(self.params.get('month'))
+        days = self.to_array(self.params.get('day'))
         latitude1 = self.params.get('latitude1')
         latitude2 = self.params.get('latitude2')
         longitude1 = self.params.get('longitude1')
@@ -392,13 +400,11 @@ class mesoDB(object):
             # Look at each month given
             for month in months:
                 # Day reset to make sure days is unique for each month
-                days = self.params.get('day')
+                days = self.to_array(self.params.get('day'))
                 # If "0" value provided, assume all days for a given month are queried
                 if days[0] == 0:
-                    print(month)
                     days = list(np.arange(0,self.daysInMonth(month,year))+1)
                 # Look at each day given
-                print(days)
                 for day in days:
                     # If the datetime given is in the future, don't do anything
                     #print(year,month,day)
@@ -407,8 +413,11 @@ class mesoDB(object):
                         jday = datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc).timetuple().tm_yday
                         # Look at each hour on a given day
                         for hour in np.arange(0,24):
+                            
                             # If the file does not exist, get it and add it to the df_new dataframe
                             if self.hour_file_exists(hour,jday,year) == False:
+                                print('is False')
+                                print(hour,jday,year)
                                 temp = self.params.get('makeFile')
                                 self.params['override'] = True
                                 self.getDailyData(self.token,day,self.daysInMonth(month,year),month,year)
@@ -431,6 +440,12 @@ class mesoDB(object):
                         print("{} is not valid".format(datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc)))
         df_new = df_new.reset_index()
         df_new = df_new.drop(['level_0','index'],axis=1)
+        
+        
+        print('making file')
+        if makeFile == True:
+            df_new.to_pickle("{:04d}{:02d}{:02d}{:02d}.pkl".format(datetime.datetime.now().year,datetime.datetime.now().month,datetime.datetime.now().day,datetime.datetime.now().hour))
+        
         return df_new
     
     
@@ -439,10 +454,10 @@ class mesoDB(object):
 if __name__ == '__main__':
     
     # Example
-    meso = mesoDB('YourTokenGoesHere')
+    meso = mesoDB('6a972fea32984b4cb3e21350b76adc26')
     #meso.main(m,currentData = True) 
     #meso.main(days=[0],months=[12],years=[2020])
-    meso.main(days=[0],months=[5],years=[2020])
+    #meso.main(days=[0],months=[5],years=[2020])
     
     meso.params['latitude1'] = 37
     meso.params['latitude2'] = 38
@@ -450,7 +465,8 @@ if __name__ == '__main__':
     meso.params['longitude2'] = -122
     meso.params['year'] = [2020]
     meso.params['month'] = [1,5]
-    meso.params['day'] = [0]
+    meso.params['day'] = 0
+    meso.params['makeFile'] = True
     testFrame = meso.get_db()
     
     
