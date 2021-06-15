@@ -364,7 +364,7 @@ class mesoDB(object):
                         for hour in np.arange(0,24):
                             # If the file does not exist, get it and add it to the df_new dataframe
                             if self.hour_file_exists(hour,jday,year) == False:
-                                
+                                pass
                             # Get the queried data
                             df_local = pd.read_pickle("{}/{:04d}/{:03d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,jday,year,jday,hour))
                             df_local['datetime'] = pd.to_datetime(df_local['datetime'])
