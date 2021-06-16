@@ -62,10 +62,13 @@ class mesoDB(object):
     #   
     def init_params(self):
         # parameters for getting data
-        self.params = {'year': [int(datetime.datetime.now().year)], 'month': [int(datetime.datetime.now().month)], 'day': [0],
+        now = datetime.datetime.now(datetime.timezone.utc)
+        startTime = now - datetime.timedelta(hours=3)
+        endTime = now
+        self.params = {'startTime': mesoTime(startTime), 'endTime': mesoTime(endTime),
                     'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None, 'makeFile': False}
         # general parameters
-        self.current_length = 60 # length of current data in minutes
+        self.realtime_length = 120 # length of current data in minutes
 
     # Checks if year folder exists, if not, make it
     #
@@ -104,65 +107,121 @@ class mesoDB(object):
         else:
             return False
     
+    # Checks if datetime is in realtime interval
+    #
+    # @ Param utc_datetime - UTC datetime object
+    #
+    def is_realtime(self, utc_datetime):
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if now < utc_datetime:
+            raise mesoDBError("Time must be defined in the past.")
+        return (now - utc_datetime).total_seconds()/60 <= self.realtime_length
+
     # Save data from mesowest to the local database
     #
-    # @ Param df_new - dataframe with fuel moisture data
-    # @ Param day - julian calander day (0-365)
-    # @ Param year - given year
+    # @ Param data - dataframe with fuel moisture data
+    # @ Param sites - dataframe with fuel moisture data
+    # @ Param start_utc - start datetime of request at UTC
+    # @ Param end_utc - end datetime of request at UTC
     #
-    def save_to_DB(self,df_new,hour,julianDay,year):
-        
-        # If the day file does not exist, make the folder and save the data
-        if self.hour_file_exists(hour,julianDay,year) == False:
-            df_new.to_pickle("{}/{:04d}/{:03d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,julianDay,year,julianDay,hour))
-        # If the day file already exists, add the new data to the original file
+    def save_to_DB(self,data,sites,start_utc,end_utc):
+        sites_path = osp.join(self.folder_path,'station.pkl')
+        if osp.exists(sites_path):
+            sts_pd = pd.read_pickle(sites_path)  
+        sts_pd = sts_pd.append(sites[~sites.index.isin(sts_pd.index)])
+        sts_pd.to_pickle(sites_path)
+        while start_utc <= end_utc:
+            data_hour = data[data['datetime'].apply(mesoTime) == mesoTime(start_utc)]
+            year = start_utc.year
+            jday = start_utc.timetuple().tm_yday
+            hour = start_utc.hour
+            hour_path = osp.join(self.folder_path,"{:04d}".format(year),"{:03d}".format(jday),"{:04d}{:03d}{:02d}.pkl".format(year,jday,hour))
+            if is_realtime(start_utc):
+                ensure_dir(hour_path + '_tmp')
+                data_hour.to_pickle(hour_path + '_tmp')
+            else:
+                if osp.exists(hour_path + '_tmp'):
+                    os.remove(hour_path + '_tmp')
+                ensure_dir(hour_path)
+                data_hour.to_pickle(hour_path)
+            start_utc += datetime.timedelta(hours=1)
+
+    # Try different tokens for MesoWest
+    #
+    # @ Param start_utc - start datetime of request at UTC
+    # @ Param end_utc - end datetime of request at UTC
+    #
+    def try_meso(self, start_utc, end_utc):
+        ntokens = len(self.tokens)
+        try:
+            mesoData = self.meso.timeseries(start=mesoTime(start_utc), 
+                                        end=mesoTime(end_utc), 
+                                        country='us',
+                                        vars='fuel_moisture')
+            return mesoData2df(mesoData) 
+        except Exception as e:
+            logging.warning("Token 1 failed. Probably full for the month.")
+            logging.warning(e)
+            for tn,token in enumerate(self.tokens[1:]):
+                try:
+                    mesoData = Meso(token).timeseries(start=mesoTime(start_utc), 
+                                                    end=mesoTime(end_utc), 
+                                                    country='us',
+                                                    vars='fuel_moisture')
+                    return mesoData2df(mesoData) 
+                except Exception as e:
+                    if tn < ntokens-2:
+                        logging.warning("Token {} failed. Probably full for the month.".format(tn+2))
+                        logging.warning(e)
+                    else:
+                        logging.error(e)
+                        raise mesoDBError("All the tokens failed. Please, add a token or try it again later.")
+
+    # Get MesoWest data for time interval
+    #
+    # @ Param start_utc - start datetime of request at UTC
+    # @ Param end_utc - end datetime of request at UTC
+    #
+    def get_meso_data(self, start_utc, end_utc):
+        if (end_utc-start_utc).total_seconds()/3600. > 24:
+            tmp_utc = start_utc + datetime.timedelta(days=1)
+            data,sites = self.try_meso(start_utc,tmp_utc)
+            self.save_to_DB(data,sites,start_utc,tmp_utc)
+            self.get_meso_data(tmp_utc,end_utc)
         else:
-            # If the day file already exists, append the new data to the original file
-            df_local = pd.read_pickle("{}/{:04d}/{:02d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,julianDay,year,julianDay,hour))
-            df_new_local = pd.concat([df_local,df_new]).drop_duplicates().reset_index(drop=True)
-            df_new_local.to_pickle("{}/{:04d}/{:02d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,julianDay,year,julianDay,hour))
+            data,sites =self.tryMeso(start_utc,end_utc)
+            self.save_to_DB(data,sites,start_utc,end_utc)
     
-    
-    # Pull fuel moisture data from mesowest dictionary, update the station.pkl file, and save the mesowest data to pickle files
+    # Gets fuel data from Mesowest and makes it into a pickle or csv file
     #
-    # @ Param mesowestData - mesowest data dictionary
-    # @ Param day - day of a given month
-    # @ Param month - month of a given year
-    # @ Param year - given year
+    # @ Param days - the days the user wants to add to their local database
+    # @ Param months - the months the user wants to add to their local database
+    # @ Param years - the years the user wants to add to their local database
     #
-    def get_and_save(self,mesowestData,utc_datetime):
-        
-        year = utc_datetime.year
-        # Fills data from mesowest into lists
-        data_file = pd.DataFrame([])
-        jDay = utc_datetime.timetuple().tm_yday
-        for stData in mesowestData['STATION']:
-            df = pd.DataFrame.from_dict(stData['OBSERVATIONS'])
-            df.columns = ['datetime','fm10']
-            df['STID'] = stData['STID']
-            data_file = data_file.append(df)
-        
-        # Creates/updates the station.pkl file which holds constant values for each station (STID, elevation, latitude, longitude, etc.)
-        if osp.exists("{}/{}".format(self.folder_path,'station.pkl')):
-            sts_pd = pd.read_pickle("{}/{}".format(self.folder_path,'station.pkl'))    
-        # Create empty dataframe for station metadata
+    def update_DB(self,days=[0],months=[int(datetime.datetime.now().month)],years=[int(datetime.datetime.now().year)]):
+        if currentData == False:
+            for year in to_array(years):
+                self.year_exists(year)
+                for month in to_array(months):
+                    daysInMonth = self.daysInMonth(month,year)
+                    days = self.to_array(days)
+                    if datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc) <= datetime.datetime.now(datetime.timezone.utc):
+                        if days[0] == 0:
+                            self.getMonthlyData(token,daysInMonth,month,year)
+                        elif len(days) > 0:
+                            for day in days:
+                                self.getDailyData(token,day,daysInMonth,month,year)
+                        else:
+                            print('Invalid Day Input')
+                    else:
+                        userDate = datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc)
+                        logging.info("{:02d}/{:02d}/{:04d} invalid date".format(userDate.month,userDate.day,userDate.year))
+                    
         else:
-            sts_pd = pd.DataFrame([])
-        keys = ['STID','LONGITUDE','LATITUDE','ELEVATION','STATE']
-        stids = np.array([station['STID'] for station in mesowestData['STATION']])
-        np_meso = np.array(mesowestData['STATION'])
-        sts_miss = np_meso[~np.isin(stids,sts_pd.index)]
-        sts_pd = sts_pd.append(pd.DataFrame.from_dict({key: [ms[key] for ms in sts_miss] for key in keys}).set_index('STID'))
-        sts_pd.to_pickle("{}/{}".format(self.folder_path,'station.pkl'))   
-        
-        # Save data for each hour of a given day
-        data_file['datetime'] = pd.to_datetime(data_file['datetime'])
-        for hour in range(0,24):
-            hourData = data_file[data_file['datetime'].dt.hour == hour]
-            if len(hourData) > 0:
-                hourData = hourData.reset_index()
-                self.save_to_DB(hourData,hour,jDay,year)
-    
+            print('Note to editor: Need to set up for hourly')
+            self.year_exists(year)
+            self.month_exists(year, month)
+            self.getHourly(token)
     
     # If the user does not specify the days they want, gets the last month's data
     #
@@ -186,7 +245,6 @@ class mesoDB(object):
             utc_datetime = utc_datetime.replace(day=currentDay)
             self.getDailyData(utc_datetime)
             currentDay+=1
-    
     
     # If the user specifies the days they want, gets that day's data
     #
@@ -212,62 +270,7 @@ class mesoDB(object):
         else:
             julianDay = utc_datetime.timetuple().tm_yday
             logging.info("{}/{:04d}/{:03d} data already exists".format(self.folder_path,year,julianDay))
-    
-    
-    # Supposed to get last available hour
-    def getHourly(self):
-        
-        utc_datetime = datetime.datetime.now(datetime.timezone.utc)
-        year = utc_datetime.year
-        month = utc_datetime.month
-        day = utc_datetime.day
-        hour = utc_datetime.hour
-        next_utc_datetime = utc_datetime + datetime.timedelta(hours=1)
-        year2 = next_utc_datetime.year
-        month2 = next_utc_datetime.month
-        day2 = next_utc_datetime.day
-        hour2 = next_utc_datetime.hour
-        
-        #prevDay,thisDay,prevMonth,thisMonth = self.prepDT(prevDay,currentDay,prevMonth,currentMonth)
-        #fuelData = token.timeseries(start=str(prevYear)+prevMonth+prevDay+prevHour+'00', end=str(currentYear)+thisMonth+thisDay+currentHour+'00', state='CA', vars='fuel_moisture')
-        mesoData = token.timeseries(start="{:04d}{:02d}{:02d}{:02d}{:02d}".format(year,month,day,hour,0), end = "{:04d}{:02d}{:02d}{:02d}{:02d}".format(year2,month2,day2,hour2,0),state='CA',vars='fuel_moisture')
 
-        self.get_and_save(mesoData,utc_datetime)
-    
-    
-    # Gets fuel data from Mesowest and makes it into a pickle or csv file
-    #
-    # @ Param days - the days the user wants to add to their local database
-    # @ Param months - the months the user wants to add to their local database
-    # @ Param years - the years the user wants to add to their local database
-    #
-    def update_local(self,days=[0],months=[int(datetime.datetime.now().month)],years=[int(datetime.datetime.now().year)]):
-
-        token = self.token
-        if currentData == False:
-            for year in to_array(years):
-                self.year_exists(year)
-                for month in to_array(months):
-                    daysInMonth = self.daysInMonth(month,year)
-                    days = self.to_array(days)
-                    if datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc) <= datetime.datetime.now(datetime.timezone.utc):
-                        if days[0] == 0:
-                            self.getMonthlyData(token,daysInMonth,month,year)
-                        elif len(days) > 0:
-                            for day in days:
-                                self.getDailyData(token,day,daysInMonth,month,year)
-                        else:
-                            print('Invalid Day Input')
-                    else:
-                        userDate = datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc)
-                        logging.info("{:02d}/{:02d}/{:04d} invalid date".format(userDate.month,userDate.day,userDate.year))
-                    
-        else:
-            print('Note to editor: Need to set up for hourly')
-            self.year_exists(year)
-            self.month_exists(year, month)
-            self.getHourly(token)
-    
     # Gets mesowest data from local database
     #
     def get_db(self): 

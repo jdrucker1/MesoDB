@@ -1,4 +1,8 @@
 import numpy as np
+import pandas as pd
+import datetime
+import os.path as osp
+import os
 
 # Checks if given value is an array, if not, make it into one
 #
@@ -50,3 +54,44 @@ def daysInMonth(month, year):
     else:
         dayLimit = 30
     return dayLimit
+
+# Returns the time in Meso format
+# 
+# @ Param utc_datetime - datetime in UTC
+#
+def mesoTime(utc_datetime):
+    year = utc_datetime.year
+    month = utc_datetime.month
+    day = utc_datetime.day
+    hour = utc_datetime.hour
+    return "{:04d}{:02d}{:02d}{:02d}{:02d}".format(year,month,day,hour,0)
+
+# Tranform dictionary data from MesoWest request to pandas dataframe
+# 
+# @ Param utc_datetime - datetime in UTC
+#
+def mesoData2df(mesowestData):
+    keys = ['STID','LONGITUDE','LATITUDE','ELEVATION','STATE']
+    sites_dic = {key: [] for key in keys}
+    data = pd.DataFrame([])
+    for stData in mesowestData['STATION']:
+        for key in keys:
+            sites_dic[key].append(stData[key]) 
+        df = pd.DataFrame.from_dict(stData['OBSERVATIONS'])
+        df.columns = ['datetime','fm10']
+        df['STID'] = stData['STID']
+        data = data.append(df)
+    data['datetime'] = pd.to_datetime(data['datetime'])
+    data.reset_index(drop=True)
+    sites = pd.DataFrame.from_dict(sites_dic).set_index('STID')
+    return data,sites
+
+# Ensure all directories in path if a file exist, for convenience return path itself.
+#
+# @ Param path - the path whose directories should exist
+#
+def ensure_dir(path):
+    path_dir = osp.dirname(path)
+    if not osp.exists(path_dir):
+        os.makedirs(path_dir)
+    return path
