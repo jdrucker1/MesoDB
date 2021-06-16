@@ -130,10 +130,12 @@ class mesoDB(object):
     # @ Param month - month of a given year
     # @ Param year - given year
     #
-    def get_and_save(self,mesowestData,day,month,year):
+    def get_and_save(self,mesowestData,utc_datetime):
+        
+        year = utc_datetime.year
         # Fills data from mesowest into lists
         data_file = pd.DataFrame([])
-        jDay = datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc).timetuple().tm_yday
+        jDay = utc_datetime.timetuple().tm_yday
         for stData in mesowestData['STATION']:
             df = pd.DataFrame.from_dict(stData['OBSERVATIONS'])
             df.columns = ['datetime','fm10']
@@ -169,11 +171,20 @@ class mesoDB(object):
     # @ Param month - user specified month
     # @ Param year - user specified year
     #
-    def getMonthlyData(self,token,dayLimit,month,year):
+    def getMonthlyData(self,utc_datetime):
         
-        currentDay = 1
-        while currentDay < dayLimit+1:
-            self.getDailyData(token,currentDay,dayLimit,month,year)
+        utc_datetime = utc_datetime.replace(day=1)
+        year = utc_datetime.year
+        month = utc_datetime.month
+        currentDay = utc_datetime.day
+        if year == datetime.datetime.now(datetime.timezone.utc).year and month == datetime.datetime.now(datetime.timezone.utc):
+            dayLimit = datetime.datetime.now().day
+        else:
+            dayLimit = daysInMonth(month,year)
+        
+        while currentDay <= dayLimit:
+            utc_datetime = utc_datetime.replace(day=currentDay)
+            self.getDailyData(utc_datetime)
             currentDay+=1
     
     
@@ -183,112 +194,45 @@ class mesoDB(object):
     # @ Param utc_datetime - datetime of request
     #
     def getDailyData(self, utc_datetime):
-        # If it's the last day of the year, set month to 1 and year + 1. 
-        if day == dayLimit:
-            if month == 12:
-                month2 = 1
-                year2 = year+1
-            # Else, increment the month by 1
-            else:
-                month2 = month+1
-                year2 = year
-            # The following month is always 1
-            day2 = 1
-        
-        # If current month, get given this month's data up until today
-        if month == int(datetime.datetime.now(datetime.timezone.utc).month) and year == int(datetime.datetime.now(datetime.timezone.utc).year):
-            dayLimit = datetime.datetime.now(datetime.timezone.utc).day
+        # Get next day's data 
+        next_utc_datetime = utc_datetime + datetime.timedelta(days=1)
+        year2 = next_utc_datetime.year
+        month2 = next_utc_datetime.month
+        day2 = next_utc_datetime.day
+        year = utc_datetime.year
+        month = utc_datetime.month
+        day = utc_datetime.day
             
         # Check if the julian day folder exists, create it if false
-        if self.julian_exists(day,month,year) == True:
-            # If override parameter is true, get data from mesowest and append any new data to existing day file (i.e. 01.pkl)
-            if override == True:
-                
-                # if it's the last day of the month (i.e. Jan), make month2 and day2 the first day of the next month (i.e. Feb) to get all the data from the last day of the original month (i.e. Jan)
-                if day+1 > dayLimit and datetime.datetime.now().month != month:
-                    mesoData = token.timeseries(start="{:04d}{:02d}{:02d}{:04d}".format(year,month,day,0), end = "{:04d}{:02d}{:02d}{:04d}".format(year2,month2,day2,0),state='CA',vars='fuel_moisture')
-                    
-                # If the next day is in the same month
-                elif day+1 <= dayLimit:
-                    mesoData = token.timeseries(start="{:04d}{:02d}{:02d}{:04d}".format(year,month,day,0), end = "{:04d}{:02d}{:02d}{:04d}".format(year,month,day+1,0),state='CA',vars='fuel_moisture')
-                
+        if self.julian_exists(utc_datetime) != True:
+                mesoData = self.meso.timeseries(start="{:04d}{:02d}{:02d}{:04d}".format(year,month,day,0), end = "{:04d}{:02d}{:02d}{:04d}".format(year2,month2,day2,0),state='CA',vars='fuel_moisture')
                 # Save data to local database
-                self.get_and_save(mesoData,day,month,year)
+                self.get_and_save(mesoData,utc_datetime)
                     
-            else:
-                julianDay = datetime.datetime(year, month, day, tzinfo=datetime.timezone.utc).timetuple().tm_yday
-                logging.info("{}/{:04d}/{:03d} data already exists".format(self.folder_path,year,julianDay))
-                
         else:
-            # if it's the last day of the month (i.e. Jan), make month2 and day2 the first day of the next month (i.e. Feb) to get all the data from the last day of the original month (i.e. Jan)
-            if day+1 > dayLimit and datetime.datetime.now().month != month:
-                mesoData = token.timeseries(start="{:04d}{:02d}{:02d}{:04d}".format(year,month,day,0), end = "{:04d}{:02d}{:02d}{:04d}".format(year2,month2,day2,0),state='CA',vars='fuel_moisture')
-
-            # If the next day is in the same month
-            elif day+1 <= dayLimit:
-                mesoData = token.timeseries(start="{:04d}{:02d}{:02d}{:04d}".format(year,month,day,0), end = "{:04d}{:02d}{:02d}{:04d}".format(year,month,day+1,0),state='CA',vars='fuel_moisture')
-        
-            self.get_and_save(mesoData,day,month,year)
-            
+            julianDay = utc_datetime.timetuple().tm_yday
+            logging.info("{}/{:04d}/{:03d} data already exists".format(self.folder_path,year,julianDay))
+    
     
     # Supposed to get last available hour
-    def getHourly(self,token):
+    def getHourly(self):
         
-        siteList = []
-        fuelList = []
-        datesList = []
-        latList = []
-        lonList = []
-        stateList = []
-        currentDate = datetime.datetime.now(datetime.timezone.utc)
-        currentHour = int(currentDate.hour)
-        currentDay = int(currentDate.day)
-        currentMonth = int(currentDate.month)
-        currentYear = int(currentDate.year)
-        # if the previous hour was the last hour from previous day
-        if currentHour - 1 == -1:
-            # if the previous day was the last day of previous month
-            if currentDay - 1 == 0:
-                # if the previous month was the last month of previous year 
-                if currentMonth - 1 == 0:
-                    prevYear = currentYear - 1
-                    prevMonth = 12
-                    prevDay = self.daysInMonth(prevMonth,prevYear)
-                    prevHour = 23
-                # if the previous month was in the current year
-                else:
-                    prevYear = currentYear
-                    prevMonth = currentMonth - 1
-                    prevDay = self.daysInMonth(prevMonth,prevYear)
-                    prevHour = 23
-            # if the previous day was in the current month
-            else:
-                prevYear = currentYear
-                prevMonth = currentMonth
-                prevDay = currentDay - 1
-                prevHour = 23
-        # if the previous hour was in the current day
-        else:
-            prevYear = currentYear
-            prevMonth = currentMonth
-            prevDay = currentDay
-            prevHour = currentHour - 1
-    
-        # Convert prevHour integer to string
-        if prevHour < 10:
-            prevHour = '0'+str(prevHour)
-        else:
-            prevHour = str(prevHour)
+        utc_datetime = datetime.datetime.now(datetime.timezone.utc)
+        year = utc_datetime.year
+        month = utc_datetime.month
+        day = utc_datetime.day
+        hour = utc_datetime.hour
+        next_utc_datetime = utc_datetime + datetime.timedelta(hours=1)
+        year2 = next_utc_datetime.year
+        month2 = next_utc_datetime.month
+        day2 = next_utc_datetime.day
+        hour2 = next_utc_datetime.hour
         
-        if currentHour < 10:
-            currentHour = '0' + str(currentHour)
-        else:
-            currentHour = str(currentHour)
         #prevDay,thisDay,prevMonth,thisMonth = self.prepDT(prevDay,currentDay,prevMonth,currentMonth)
         #fuelData = token.timeseries(start=str(prevYear)+prevMonth+prevDay+prevHour+'00', end=str(currentYear)+thisMonth+thisDay+currentHour+'00', state='CA', vars='fuel_moisture')
-        mesoData = token.timeseries(start="{:04d}{:02d}{:02d}{:02d}{:02d}".format(prevYear,prevMonth,prevDay,prevHour,0), end = "{:04d}{:02d}{:02d}{:02d}{:02d}".format(currentYear,currentMonth,currentDay,currentHour,0),state='CA',vars='fuel_moisture')
+        mesoData = token.timeseries(start="{:04d}{:02d}{:02d}{:02d}{:02d}".format(year,month,day,hour,0), end = "{:04d}{:02d}{:02d}{:02d}{:02d}".format(year2,month2,day2,hour2,0),state='CA',vars='fuel_moisture')
 
-        self.get_and_save(mesoData,prevDay,prevMonth,prevYear,siteList,fuelList,datesList,latList,lonList,stateList)
+        self.get_and_save(mesoData,utc_datetime)
     
     
     # Gets fuel data from Mesowest and makes it into a pickle or csv file
@@ -297,7 +241,7 @@ class mesoDB(object):
     # @ Param months - the months the user wants to add to their local database
     # @ Param years - the years the user wants to add to their local database
     #
-    def main(self,days=[0],months=[int(datetime.datetime.now().month)],years=[int(datetime.datetime.now().year)]):
+    def update_local(self,days=[0],months=[int(datetime.datetime.now().month)],years=[int(datetime.datetime.now().year)]):
 
         token = self.token
         if currentData == False:
@@ -356,14 +300,14 @@ class mesoDB(object):
                 for day in month_days:
                     # If the datetime given is in the future, don't do anything
                     user_datetime = datetime.datetime(year,month,day,tzinfo=datetime.timezone.utc)
-                    if user_datetime <= datetime.datetime.now(datetime.timezone.utc):
+                    if user_datetime < datetime.datetime.now(datetime.timezone.utc):
                         # if julian folder does not exist, get daily data for that day
                         if not self.julian_exists(user_datetime):
                             self.getDailyData(user_datetime)
                         # Look at each hour on a given day
                         for hour in np.arange(0,24):
                             # If the file does not exist, get it and add it to the df_new dataframe
-                            if self.hour_file_exists(hour,jday,year) == False:
+                            if self.hour_file_exists(user_datetime) == False:
                                 pass
                             # Get the queried data
                             df_local = pd.read_pickle("{}/{:04d}/{:03d}/{:04d}{:03d}{:02d}.pkl".format(self.folder_path,year,jday,year,jday,hour))
