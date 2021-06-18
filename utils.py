@@ -1,8 +1,9 @@
-import numpy as np
-import pandas as pd
 import datetime
+import logging
+import numpy as np
 import os.path as osp
 import os
+import pandas as pd
 
 # Checks if given value is an array, if not, make it into one
 #
@@ -43,7 +44,7 @@ def check_coords(latitude1, latitude2, longitude1, longitude2):
 # @ Param month - specific month
 # @ Param year - specific year
 #
-def daysInMonth(month, year):
+def days_in_month(month, year):
     if month == 1 or month == 3 or month == 5 or month == 7 or month == 8 or month == 10 or month == 12:
         dayLimit = 31
     elif month == 2:
@@ -59,7 +60,7 @@ def daysInMonth(month, year):
 # 
 # @ Param utc_datetime - datetime in UTC
 #
-def mesoTime(utc_datetime):
+def meso_time(utc_datetime):
     year = utc_datetime.year
     month = utc_datetime.month
     day = utc_datetime.day
@@ -70,7 +71,7 @@ def mesoTime(utc_datetime):
 # 
 # @ Param utc_datetime - datetime in UTC
 #
-def mesoData2df(mesowestData):
+def meso_data_2_df(mesowestData):
     keys = ['STID','LONGITUDE','LATITUDE','ELEVATION','STATE']
     sites_dic = {key: [] for key in keys}
     data = pd.DataFrame([])
@@ -95,3 +96,22 @@ def ensure_dir(path):
     if not osp.exists(path_dir):
         os.makedirs(path_dir)
     return path
+
+# String to datetime
+#
+# @ Param year - user specified year
+# @ Param month - user specified month
+# @ Param day - user specified day
+# @ Param hour - user specified hour
+#
+def str_2_dt(year,month,day,hour):
+    userDatetime = datetime.datetime(year,month,day,hour,tzinfo=datetime.timezone.utc)
+    # Checks if datetime given is valid (not a future date or a time before mesowest started collecting data)
+    if userDatetime > datetime.datetime.now(datetime.timezone.utc) or userDatetime.year < 1996:
+        logging.error('{} not a valid datetime'.format(userDatetime))
+    else:
+        return datetime.datetime(year,month,day,hour,tzinfo=datetime.timezone.utc)
+    
+
+
+
