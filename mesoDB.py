@@ -304,7 +304,7 @@ class mesoDB(object):
 if __name__ == '__main__':
     
     # Example
-    meso = mesoDB('ce3ac0a4d004407da62e9c05a96a9daf')
+    meso = mesoDB('YourTokenGoesHere')
     #m = Meso(token='ce3ac0a4d004407da62e9c05a96a9daf')
     #fuelData = m.timeseries(start='202106180700', end='202106180800', country='us', vars='fuel_moisture')
     meso.params['startTime'] = str_2_dt(2021,6,18,1)
