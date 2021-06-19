@@ -97,21 +97,19 @@ def ensure_dir(path):
         os.makedirs(path_dir)
     return path
 
-# String to datetime
+# Set UTC datetime from integers
 #
 # @ Param year - user specified year
 # @ Param month - user specified month
 # @ Param day - user specified day
 # @ Param hour - user specified hour
 #
-def str_2_dt(year,month,day,hour):
+def set_utc_datetime(year, month, day, hour = 0):
     userDatetime = datetime.datetime(year,month,day,hour,tzinfo=datetime.timezone.utc)
     # Checks if datetime given is valid (not a future date or a time before mesowest started collecting data)
     if userDatetime > datetime.datetime.now(datetime.timezone.utc) or userDatetime.year < 1996:
         logging.error('{} not a valid datetime'.format(userDatetime))
+        return None
     else:
         return datetime.datetime(year,month,day,hour,tzinfo=datetime.timezone.utc)
     
-
-
-
