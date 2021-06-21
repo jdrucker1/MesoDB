@@ -14,7 +14,10 @@ import os
 import glob
 import pandas as pd
 import pytz
-from utils import *
+try:
+    from .utils import *
+except:
+    from utils import *
 
 # Mesowest Database Class Error
 #
