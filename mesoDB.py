@@ -37,31 +37,44 @@ class mesoDB(object):
         self.meso = Meso(token=self.tokens[0])
         self.init_params()
         
-       
+    # Add tokens to the mesoDB database
+    #
+    # @ Param tokens - string or list of tokens
+    #
+    def add_tokens(self, userTokens):
+        tokens_path = osp.join(self.folder_path,'.tokens')
+        if osp.exists(tokens_path):
+            with open(tokens_path,'r') as f:
+                tokens = f.read()
+            self.tokens = [t for t in tokens.split('\n') if t != '']
+        else:
+            self.tokens = []
+        if isinstance(userTokens,str) and userTokens not in self.tokens:
+            self.tokens.append(userTokens)
+        elif isinstance(userTokens,list):
+            for token in userTokens:  
+                if token not in self.tokens:
+                    self.tokens.append(token)
+        if len(self.tokens) > 0:
+            with open(tokens_path,'w') as f:
+                for t in self.tokens:
+                    f.write(t+'\n')
+
     # Checks if mesoDB directory and their tokens exists. If not, it is created
     #
     # @ Param token - token to be used or added to the tokens list
     #
     def exists_here(self, token):
-        if osp.exists(self.folder_path):
-            logging.info('mesoDB - Existent DB path {}'.format(self.folder_path))
-            tokens_path = osp.join(self.folder_path,'.tokens')
-            if osp.exists(tokens_path):
-                with open(tokens_path,'r') as f:
-                    tokens = f.read()
-                self.tokens = [t for t in tokens.split('\n') if t != '']
-            else:
-                self.tokens = []
-        else:
+        if not osp.exists(self.folder_path):
             os.makedirs(self.folder_path)
             self.tokens = []
-        if token != None and not token in self.tokens:
-            self.tokens.append(token)  
+        else:
+            logging.info('mesoDB.exists_here - Existent DB path {}'.format(self.folder_path))
+        
+        self.add_tokens(token)
+
         if not len(self.tokens):
-            raise mesoDBError('no tokens were provided or existent in the database.')
-        with open(osp.join(self.folder_path,'.tokens'),'w') as f:
-            for t in self.tokens:
-                f.write(t+'\n')
+            raise mesoDBError('mesoDB.exists_here - no tokens were provided or existent in the database.')
 
     # Get sites processed by the database
     #
@@ -120,7 +133,7 @@ class mesoDB(object):
         year = utc_datetime.year
         jday = utc_datetime.timetuple().tm_yday
         hour = utc_datetime.hour
-        path = osp.join(self.folder_path,'{:4d}'.format(year),'{:03d}'.format(jday),'{:04d}{:03d}{:02d}.pkl'.format(year, jday, hour))
+        path = osp.join(self.julian_path(utc_datetime),'{:04d}{:03d}{:02d}.pkl'.format(year, jday, hour))
         return path
         
     # Checks if month folder exists, if not, make it
@@ -186,10 +199,10 @@ class mesoDB(object):
                 ensure_dir(hour_path + '_tmp')
                 data_hour.reset_index(drop=True).to_pickle(hour_path + '_tmp')
             else:
-                if osp.exists(hour_path + '_tmp'):
-                    os.remove(hour_path + '_tmp')
                 ensure_dir(hour_path)
                 data_hour.reset_index(drop=True).to_pickle(hour_path)
+                if osp.exists(hour_path + '_tmp'):
+                    os.remove(hour_path + '_tmp')
             start_utc += datetime.timedelta(hours=1)
 
     # Call MesoWest
@@ -358,7 +371,7 @@ class mesoDB(object):
             stidLoc = df_sites[np.logical_and(df_sites['LATITUDE'].between(lat1, lat2, inclusive=True),
                                             df_sites['LONGITUDE'].between(lon1, lon2, inclusive=True))].index.values
         elif state != None:
-            stidLoc = df_sites[df_sites['STATE'] == state].index.values
+            stidLoc = df_sites[df_sites['STATE'].str.lower() == state.lower()].index.values
         # Create an empty dataframe which will hold all the data requested
         data = []
         
@@ -404,22 +417,16 @@ class mesoDB(object):
 #
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    #token = input('What token do you want to use?')
-    #meso = mesoDB(token)
-    meso = mesoDB()
-    meso.set_start_datetime(2021,5,1)
-    meso.set_end_datetime(2021,6,1)
-    import timeit
-    print(timeit.timeit("df = meso.get_DB()", globals=globals(), number=1))
-    #meso.update_DB()
-    #meso.main(m,currentData = True) 
-    #meso.main(days=[0],months=[12],years=[2020])
-    #meso.main(days=[0],months=[5],years=[2020])
-    
-    #meso.params['latitude1'] = 32
+    token = input('What token do you want to use?')
+    meso = mesoDB(token)
+    meso.update_DB()
+
+    #meso.set_start_datetime(2020,10,1)
+    #meso.set_end_datetime(2021,6,1)
+    #meso.params['latitude1'] = 32.
     #meso.params['latitude2'] = 42.5
-    #meso.params['longitude1'] = -123
-    #meso.params['longitude2'] = -112
+    #meso.params['longitude1'] = -125.
+    #meso.params['longitude2'] = -112.
     #meso.params['startTime'] = str_2_dt(2021,5,1,0)
     #meso.params['endTime'] = str_2_dt(2021,5,2,0)
     #meso.params['makeFile'] = True
