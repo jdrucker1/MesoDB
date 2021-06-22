@@ -5,15 +5,12 @@
 #
 import datetime
 import logging
-import matplotlib.dates as md
-import matplotlib.pyplot as plt
 from MesoPy import Meso
 import numpy as np
 import os.path as osp
 import os
 import glob
 import pandas as pd
-import pytz
 try:
     from .utils import *
 except:
@@ -37,6 +34,7 @@ class mesoDB(object):
         self.meso = Meso(token=self.tokens[0])
         self.init_params()
         
+
     # Add tokens to the mesoDB database
     #
     # @ Param tokens - string or list of tokens
