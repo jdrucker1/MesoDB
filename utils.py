@@ -72,19 +72,20 @@ def meso_time(utc_datetime):
 # @ Param utc_datetime - datetime in UTC
 #
 def meso_data_2_df(mesowestData):
-    keys = ['STID','LONGITUDE','LATITUDE','ELEVATION','STATE']
-    sites_dic = {key: [] for key in keys}
-    data = pd.DataFrame([])
+    site_keys = ['STID','LONGITUDE','LATITUDE','ELEVATION','STATE']
+    site_dic = {key: [] for key in site_keys}
+    data_keys = ['STID','datetime','fm10']
+    data_dic = {key: [] for key in data_keys}
     for stData in mesowestData['STATION']:
-        for key in keys:
-            sites_dic[key].append(stData[key]) 
-        df = pd.DataFrame.from_dict(stData['OBSERVATIONS'])
-        df.columns = ['datetime','fm10']
-        df['STID'] = stData['STID']
-        data = data.append(df)
+        for site_key in site_keys:
+            site_dic[site_key].append(stData[site_key]) 
+        data_dic['STID'] += [stData['STID']]*len(stData['OBSERVATIONS']['date_time'])
+        data_dic['datetime'] += stData['OBSERVATIONS']['date_time']
+        data_dic['fm10'] += stData['OBSERVATIONS']['fuel_moisture_set_1']
+    
+    data = pd.DataFrame.from_dict(data_dic)
     data['datetime'] = pd.to_datetime(data['datetime'])
-    data.reset_index(drop=True)
-    sites = pd.DataFrame.from_dict(sites_dic).set_index('STID')
+    sites = pd.DataFrame.from_dict(site_dic).set_index('STID')
     return data,sites
 
 # Ensure all directories in path if a file exist, for convenience return path itself.
