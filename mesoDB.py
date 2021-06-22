@@ -420,14 +420,3 @@ if __name__ == '__main__':
     token = input('What token do you want to use?')
     meso = mesoDB(token)
     meso.update_DB()
-
-    #meso.set_start_datetime(2020,10,1)
-    #meso.set_end_datetime(2021,6,1)
-    #meso.params['latitude1'] = 32.
-    #meso.params['latitude2'] = 42.5
-    #meso.params['longitude1'] = -125.
-    #meso.params['longitude2'] = -112.
-    #meso.params['startTime'] = str_2_dt(2021,5,1,0)
-    #meso.params['endTime'] = str_2_dt(2021,5,2,0)
-    #meso.params['makeFile'] = True
-    #testFrame = meso.get_DB()
