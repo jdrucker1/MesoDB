@@ -27,7 +27,7 @@ class mesoDB(object):
     
     # mesoDB constructor
     #
-    def __init__(self, mesoToken=None, folder_path=osp.join(osp.abspath(os.getcwd()),'mesoDB')):
+    def __init__(self, mesoToken=[], folder_path=osp.join(osp.abspath(os.getcwd()),'mesoDB')):
         self.folder_path = folder_path
         self.stations_path = osp.join(self.folder_path,'stations.pkl')
         self.exists_here(mesoToken)
