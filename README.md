@@ -34,19 +34,16 @@ Note: Users only need to enter your Mesowest token once and it will be saved fro
 ```python
 db = mesoDB(mesoToken) # User's Mesowest token goes here
 
-# After running the database once with the user's Mesowest token:
-
+# After running the database once with the user's Mesowest token, they no longer need to hae their token as a paramter:
 db = mesoDB()
 ```
 
 Note: If no folder name is specified, the default is going to be a folder called `mesoDB` in the current path tree. One can specify a path where the database should be created. For instance:
 ```python
 # Call the database this way on the first use:
-
 db = mesoDB(mesoToken, folder_path = 'FMDB_CA')
 
-# Call the database this way on the second use:
-
+# Call the database this way after Mesowest tokens have already been placed in the local database:
 db = mesoDB(folder_path = 'FMDB_CA')
 ```
 Users can also add one or many Mesowest tokens using the add_tokens function:
@@ -91,12 +88,10 @@ db.set_start_datetime(2021,6,1) # where the arguments are (year, month, day)
 db.set_end_datetime(2021,6,2)   # where the arguments are (year, month, day)
 
 # The user can also insert the hours they want using the same functions above:
-
 db.set_start_datetime(2021,6,1,1) # where the arguments are (year, month, day, hour)
 db.set_end_datetime(2021,6,2,19)   # where the arguments are (year, month, day, hour)
 
 # All of the other parameters are set as seen below:
-
 db.params["country"] = None        # This will prevent the database from getting all the data for the country
 db.params["state"] = "ca"          # This will set the data to be gathered to be from California
 db.params["latitude1"] = -119.2    # This will set one of the geographical coordinates limits
@@ -115,7 +110,7 @@ db.update_DB()
 When querying data from the user's local database, they should be more specific in the data they want compared to when they queried data into the database. For example, if the user queried data for the entire United States from Mesowest, but they only want data from California, now would be when they updated the "state" parameter to use that data (see below):
 ```python
 db.params["state"] = "ca" 
- db.get_DB()
+db.get_DB()
 ```
 
 ## Authors
