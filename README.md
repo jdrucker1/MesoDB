@@ -49,6 +49,15 @@ db = mesoDB(mesoToken, folder_path = 'FMDB_CA')
 
 db = mesoDB(folder_path = 'FMDB_CA')
 ```
+Users can also add one or many Mesowest tokens using the add_tokens function:
+```python
+# Add a single token
+db.add_tokens("abc123def456")
+
+# Add multiple tokens
+db.add_tokens(["abc123def456", "123abc456def"])
+````
+
 
 ### Create/Update Local Database
 
