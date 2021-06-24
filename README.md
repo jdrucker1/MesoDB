@@ -29,6 +29,7 @@ Python 3 and package modules:
 from mesoDB import mesoDB
 ```
 * Create an mesoDB object seen below. 
+
 Note: Users only need to enter your Mesowest token once and it will be saved from that time on
 ```python
 db = mesoDB(mesoToken) # User's Mesowest token goes here
