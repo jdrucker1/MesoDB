@@ -22,6 +22,14 @@ db = mesoDB("abc123def456") # Replace "abc123def456" with your Mesowest token
 ## db = mesoDB("abc123def456", "CA_mesoDB")
 #
 ## db = mesoDB(token="abc123def456", folder_path="CA_mesoDB")
+#
+# If you want to just add a Mesowest token to your local database:
+#
+##db.add_tokens("abc123def456")
+#
+# Or you can also add multiple tokens at the same time in a list:
+#
+##db.add_tokens(["abc123def456", "123abc456def"])
 
 
 # Create/update your local database
