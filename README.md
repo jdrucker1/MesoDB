@@ -82,9 +82,7 @@ db.set_end_datetime(2021,6,2)   # where the arguments are (year, month, day)
 
 Once the user inputs their parameters, they can query data to their local database. 
 
-Note: Generally, making the data queries less specific maximizes the data added to the database. For example, If  
-the user queries data for California and then later goes back to query all of the data for the United States for  
-the same dates, the database assumes since the files for those dates are already in the system, so the data must  
+Note: Generally, making the data queries less specific maximizes the data added to the database. For example, If  the user queries data for California and then later goes back to query all of the data for the United States for  the same dates, the database assumes since the files for those dates are already in the system, so the data must  
 already be there and skips those dates to preserve the Mesowest token usage:
 ```python
 db.update_DB()
