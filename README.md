@@ -51,7 +51,7 @@ db = mesoDB(folder_path = 'FMDB_CA')
 
 ### Create/Update Local Database
 
-Before the user creates the database, there are a few parameters that they can use to choose
+Before the user adds data to the database, there are a few parameters that they can use to choose
 which data to query. If the user does not change the default paramters, the last three hours 
 of data from the entire United States will be added to the database. There are the parameters:
 
@@ -69,11 +69,23 @@ All the default parameters are set when the class is initialized as:
 ```python
 now = datetime.datetime.now(datetime.timezone.utc)
 self.params = {'startTime': now - datetime.timedelta(hours=3), 'endTime': now, 'country': 'us', 'state': None,
-                    'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None, 'makeFile': False}
+               'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None, 'makeFile': False}
 ````
 
 To change the parameters, the user can do:
 ```python
-db.params["country"] = None    # This will prevent the database from getting all the data for the country
-db.params["state"] = "ca"      # This will set the data to be gathered to be from California
+db.params["country"] = None     # This will prevent the database from getting all the data for the country
+db.params["state"] = "ca"       # This will set the data to be gathered to be from California
+db.set_start_datetime(2021,6,1) # where the arguments are (year, month, day)
+db.set_end_datetime(2021,6,2)   # where the arguments are (year, month, day)
+````
+
+Once the user inputs their parameters, they can query data to their local database. 
+
+Note: Generally, making the data queries less specific maximizes the data added to the database. If the user 
+queries data for California and then later goes back to query all of the data for the United States for the 
+same dates, the database assumes since the files for those dates are already in the system, the data must already
+be there and skips those dates to preserve the Mesowest token usage:
+```python
+db.update_DB()
 ````
