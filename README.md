@@ -1,6 +1,6 @@
 # Mesowest Database
 
-The goal of this project is to maximize a user's mesowest token usage and save data that has 
+The goal of this project is to maximize a user's mesowest token usage and save fuel moisture data that has 
 already been requested to a local database.
 
 ## Getting Started
@@ -74,10 +74,23 @@ self.params = {'startTime': now - datetime.timedelta(hours=3), 'endTime': now, '
 
 To change the parameters, the user can do:
 ```python
-db.params["country"] = None     # This will prevent the database from getting all the data for the country
-db.params["state"] = "ca"       # This will set the data to be gathered to be from California
+# The start and end time parameters are set using functions to easily allow the user to create a datetime object
+that is in utc time:
+
 db.set_start_datetime(2021,6,1) # where the arguments are (year, month, day)
 db.set_end_datetime(2021,6,2)   # where the arguments are (year, month, day)
+
+# The user can also insert the hours they want using the same functions above:
+
+db.set_start_datetime(2021,6,1,1) # where the arguments are (year, month, day, hour)
+db.set_end_datetime(2021,6,2,19)   # where the arguments are (year, month, day, hour)
+
+# All of the other parameters are set as seen below:
+
+db.params["country"] = None        # This will prevent the database from getting all the data for the country
+db.params["state"] = "ca"          # This will set the data to be gathered to be from California
+db.params["latitude1"] = -119.2    # This will set one of the geographical coordinates limits
+db.params['makeFile'] = True       # This will save the data you get into a CSV file
 ````
 
 Once the user inputs their parameters, they can query data to their local database. 
@@ -86,3 +99,15 @@ Note: Generally, making the data queries less specific maximizes the data added 
 ```python
 db.update_DB()
 ````
+
+### Query Data From The User's Local Database
+
+When querying data from the user's local database, they should be more specific in the data they want compared to when they queried data into the database. For example, if the user queried data for the entire United States from Mesowest, but they only want data from California, now would be when they updated the "state" parameter to use that data (see below):
+```python
+db.params["state"] = "ca" 
+ db.get_DB()
+```
+
+## Authors
+* jdrucker1
+* Fergui
