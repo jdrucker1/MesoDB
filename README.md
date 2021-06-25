@@ -92,8 +92,7 @@ self.params = {'startTime': now - datetime.timedelta(hours=3), 'endTime': now, '
 
 To change the parameters, the user can do:
 ```python
-# The start and end time parameters are set using functions to easily allow the user to create a datetime object
-that is in UTC time. To change only update parameters:
+# The start and end time parameters are set using functions to easily allow the user to create a datetime object that is in UTC time. To change only update parameters:
 db.set_start_time_update(2021,6,1)      # where the arguments are (year, month, day)
 db.set_end_time_update(2021,6,2)        # where the arguments are (year, month, day)
 
