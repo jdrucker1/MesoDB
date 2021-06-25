@@ -64,9 +64,12 @@ db.add_tokens(["abc123def456", "123abc456def"])
 
 ### Create/Update Local Database
 
-Before the user adds data to the database, there are a few parameters that they can use to choose
-which data to query. If the user does not change the default parameters, the last 3 hours 
-of data from the entire United States will be added to the database. These are the parameters:
+Before the user adds data to the database, there are two set of parameters that the user can specify.
+The parameters regarding updating the database are defined in db.update dictionary, the once about getting
+data from the database are defined in db.params dictionary. Both dictionaries have the same parameters 
+except `makeFile` that is only present on db.params. Both dictionaries are also initialized with the same values 
+(Default in each field below). If the user does not change the default parameters, the last 3 hours 
+of data from the entire United States will be added to the database. These are all the parameters:
 
 * **startTime**: datetime variable. Default: three hours before the present. Example: 2021-6-24 01:05:31.4321.
 * **endTime**: datetime variable. Default: the present. Example: 2021-6-24 04:05:31.4321.
@@ -81,6 +84,8 @@ of data from the entire United States will be added to the database. These are t
 All the default parameters are set when the class is initialized as:
 ```python
 now = datetime.datetime.now(datetime.timezone.utc)
+self.update = {'startTime': now - datetime.timedelta(hours=3), 'endTime': now, 'country': 'us', 'state': None,
+               'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None}
 self.params = {'startTime': now - datetime.timedelta(hours=3), 'endTime': now, 'country': 'us', 'state': None,
                'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None, 'makeFile': False}
 ````
@@ -88,19 +93,23 @@ self.params = {'startTime': now - datetime.timedelta(hours=3), 'endTime': now, '
 To change the parameters, the user can do:
 ```python
 # The start and end time parameters are set using functions to easily allow the user to create a datetime object
-that is in UTC time:
-db.set_start_datetime(2021,6,1)      # where the arguments are (year, month, day)
-db.set_end_datetime(2021,6,2)        # where the arguments are (year, month, day)
+that is in UTC time. To change only update parameters:
+db.set_start_time_update(2021,6,1)      # where the arguments are (year, month, day)
+db.set_end_time_update(2021,6,2)        # where the arguments are (year, month, day)
 
 # The user can also insert the hours they want using the same functions above:
-db.set_start_datetime(2021,6,1,1)    # where the arguments are (year, month, day, hour)
-db.set_end_datetime(2021,6,2,19)     # where the arguments are (year, month, day, hour)
+db.set_start_time_update(2021,6,1,1)    # where the arguments are (year, month, day, hour)
+db.set_end_time_update(2021,6,2,19)     # where the arguments are (year, month, day, hour)
+
+# The user can also specify the parameters for both dictionaries doing:
+db.set_start_time(2021,6,1,1)    # where the arguments are (year, month, day, hour)
+db.set_end_time(2021,6,2,19)     # where the arguments are (year, month, day, hour)
 
 # All of the other parameters are set as seen below:
-db.params["country"] = None          # This will prevent the database from getting all the data for the country
-db.params["state"] = "ca"            # This will set the data to be gathered to be from California
-db.params["latitude1"] = -119.2      # This will set one of the geographical coordinates limits
-db.params['makeFile'] = True         # This will save the data you get into a CSV file
+db.update["country"] = None          # This will prevent the database from getting all the data for the country
+db.update["state"] = "ca"            # This will set the data to be gathered to be from California
+db.update["latitude1"] = -119.2      # This will set one of the geographical coordinates limits
+db.update['makeFile'] = True         # This will save the data you get into a CSV file
 ````
 
 Once the user inputs their parameters, they can query data to their local database. 
@@ -118,6 +127,11 @@ When querying data from the user's local database, the user can be more specific
 ```python
 db.params["state"] = "ca" 
 df = db.get_DB()
+```
+And for creating the CSV file:
+```python
+db.params["makeFile"] = True
+db.get_DB()
 ```
 
 ## Authors
