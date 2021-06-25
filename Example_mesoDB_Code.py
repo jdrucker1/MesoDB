@@ -47,8 +47,8 @@ db.update_DB()
 # The coordinates can be defined using the lower-left and upper-right corner coordinates in WGS84
 # latitude and logitude degrees.
 #
-## db.update["country"] = None
-## db.update["state"] = "ca"
+## db.update["country"] = None   # This will set the queried data to not get data for the entire United States
+## db.update["state"] = "ca"     # This will set the queried data from Mesowest to only be from California
 #
 ## db.update["country"] = None
 ## db.update["latitude1"] = 32.      # lower-left latitude (minimum latitude)
@@ -98,5 +98,5 @@ mesoFrame = db.get_DB()
 #
 # If the user just wants a CSV file with the results:
 #
-##db.params["makeFile"] = True         # This will set the queried data to only be from California
+##db.params["makeFile"] = True         # This will save the data you get into a csv if you set this to True.
 ##db.get_DB()
