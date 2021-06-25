@@ -9,12 +9,16 @@ from MesoPy import Meso
 import numpy as np
 import os.path as osp
 import os
+import sys
 import glob
 import pandas as pd
 try:
     from .utils import *
 except:
     from utils import *
+
+# increment recursion limit
+sys.setrecursionlimit(10000)
 
 # Mesowest Database Class Error
 #
@@ -27,7 +31,7 @@ class mesoDB(object):
     
     # mesoDB constructor
     #
-    def __init__(self, mesoToken=[], folder_path=osp.join(osp.abspath(os.getcwd()),'mesoDB')):
+    def __init__(self, folder_path=osp.join(osp.abspath(os.getcwd()),'mesoDB'), mesoToken=[]):
         self.folder_path = folder_path
         self.stations_path = osp.join(self.folder_path,'stations.pkl')
         self.exists_here(mesoToken)
@@ -416,5 +420,5 @@ class mesoDB(object):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     token = input('What token do you want to use?')
-    meso = mesoDB(token)
+    meso = mesoDB(mesoToken=token)
     meso.update_DB()
