@@ -85,25 +85,67 @@ class mesoDB(object):
             return pd.read_pickle(self.stations_path)
         return pd.DataFrame([])
 
-    # Set start UTC datetime from integers
+    # Set start UTC datetime from integers for the update parameters
     #
     # @ Param year - user specified year
     # @ Param month - user specified month
     # @ Param day - user specified day
     # @ Param hour - user specified hour
     #
-    def set_start_datetime(self, year, month, day, hour = 0):
+    def set_start_time_update(self, year, month, day, hour = 0):
+        self.update_params['startTime'] = set_utc_datetime(year, month, day, hour)
+
+    # Set start UTC datetime from integers for the get parameters
+    #
+    # @ Param year - user specified year
+    # @ Param month - user specified month
+    # @ Param day - user specified day
+    # @ Param hour - user specified hour
+    #
+    def set_start_time_get(self, year, month, day, hour = 0):
         self.params['startTime'] = set_utc_datetime(year, month, day, hour)
 
-    # Set end UTC datetime from integers
+    # Set start UTC datetime from integers to all the parameters
     #
     # @ Param year - user specified year
     # @ Param month - user specified month
     # @ Param day - user specified day
     # @ Param hour - user specified hour
     #
-    def set_end_datetime(self, year, month, day, hour = 0):
+    def set_start_time(self, year, month, day, hour = 0):
+        self.set_start_time_update(year, month, day, hour)
+        self.set_start_time_get(year, month, day, hour)
+
+    # Set end UTC datetime from integers for the update parameters
+    #
+    # @ Param year - user specified year
+    # @ Param month - user specified month
+    # @ Param day - user specified day
+    # @ Param hour - user specified hour
+    #
+    def set_end_time_update(self, year, month, day, hour = 0):
+        self.update_params['endTime'] = set_utc_datetime(year, month, day, hour)
+        
+    # Set end UTC datetime from integers for the get parameters
+    #
+    # @ Param year - user specified year
+    # @ Param month - user specified month
+    # @ Param day - user specified day
+    # @ Param hour - user specified hour
+    #
+    def set_end_time_get(self, year, month, day, hour = 0):
         self.params['endTime'] = set_utc_datetime(year, month, day, hour)
+
+    # Set end UTC datetime from integers for all the parameters
+    #
+    # @ Param year - user specified year
+    # @ Param month - user specified month
+    # @ Param day - user specified day
+    # @ Param hour - user specified hour
+    #
+    def set_end_time(self, year, month, day, hour = 0):
+        self.set_end_time_update(year, month, day, hour)
+        self.set_end_time_get(year, month, day, hour)
 
     # Initialize parameters for get_data
     #   
@@ -112,8 +154,10 @@ class mesoDB(object):
         now = datetime.datetime.now(datetime.timezone.utc)
         startTime = now - datetime.timedelta(hours=3)
         endTime = now
+        self.update_params = {'startTime': startTime, 'endTime': endTime, 'country': 'us', 'state': None,
+                            'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None}
         self.params = {'startTime': startTime, 'endTime': endTime, 'country': 'us', 'state': None,
-                    'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None, 'makeFile': False}
+                        'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None, 'makeFile': False}
         # general parameters
         self.realtime_length = 120 # length of current data in minutes
 
@@ -213,9 +257,12 @@ class mesoDB(object):
     # @ Param end_utc - end datetime of request at UTC
     #
     def run_meso(self, start_utc, end_utc):
-        country = self.params.get('country')
-        state = self.params.get('state')
-        lat1,lat2,lon1,lon2 = check_coords(self.params.get('latitude1'), self.params.get('latitude2'), self.params.get('longitude1'), self.params.get('longitude2'))
+        country = self.update_params.get('country')
+        state = self.update_params.get('state')
+        lat1,lat2,lon1,lon2 = check_coords(self.update_params.get('latitude1'), 
+                                        self.update_params.get('latitude2'), 
+                                        self.update_params.get('longitude1'), 
+                                        self.update_params.get('longitude2'))
         if country != None:
             logging.debug('mesoDB.run_meso - retrieving for country={}'.format(country))
             mesoData = self.meso.timeseries(start=meso_time(start_utc), 
@@ -328,8 +375,8 @@ class mesoDB(object):
     # @ Param end_utc - end datetime of request at UTC
     #
     def update_DB(self):
-        start_utc = self.params.get('startTime')
-        end_utc = self.params.get('endTime')
+        start_utc = self.update_params.get('startTime')
+        end_utc = self.update_params.get('endTime')
         if start_utc is None or end_utc is None or (end_utc-start_utc).total_seconds() <= 60:
             raise mesoDBError('mesoDB.update_DB - times specified are incorrect or time inteval too small')
         logging.info('mesoDB.update_DB - updating data from {} to {}'.format(start_utc, end_utc))
