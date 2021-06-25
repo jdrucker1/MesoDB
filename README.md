@@ -28,23 +28,29 @@ Python 3 and package modules:
 ```python
 from mesoDB import mesoDB
 ```
-* Create an mesoDB object seen below. 
+* Create a mesoDB object. 
 
-Note: Users only need to enter your Mesowest token once and it will be saved from that time on
+The two arguments for defining a mesoDB object are the path where to save the database (`folder_path`) and the Mesowest token to download the data (`mesoToken`). A Mesowest token can be obtained from [synopticdata page](https://developers.synopticdata.com/).
+
+Note: Users only need to enter their Mesowest tokens once and they will be saved from that time on
 ```python
-db = mesoDB(mesoToken) # User's Mesowest token goes here
+db = mesoDB(mesoToken='token') # User's Mesowest token replaces 'token'
 
-# After running the database once with the user's Mesowest token, they no longer need to hae their token as a paramter:
+# After running the database once with the user's Mesowest token, they no longer need to have their token as a parameter:
 db = mesoDB()
 ```
 
 Note: If no folder name is specified, the default is going to be a folder called `mesoDB` in the current path tree. One can specify a path where the database should be created. For instance:
 ```python
 # Call the database this way on the first use:
-db = mesoDB(mesoToken, folder_path = 'FMDB_CA')
+db = mesoDB(folder_path = 'FMDB_CA', mesoToken='token')
+# or 
+db = mesoDB('FMDB_CA', 'token')
 
 # Call the database this way after Mesowest tokens have already been placed in the local database:
 db = mesoDB(folder_path = 'FMDB_CA')
+# or
+db = mesoDB('FMDB_CA')
 ```
 Users can also add one or many Mesowest tokens using the add_tokens function:
 ```python
