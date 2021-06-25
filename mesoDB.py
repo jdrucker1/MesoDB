@@ -408,9 +408,9 @@ class mesoDB(object):
         # If makeFile variable is true, create a pickle file with the requested data
         if makeFile:
             now_datetime = datetime.datetime.now()
-            filename = '{:04d}{:02d}{:02d}{:02d}.pkl'.format(now_datetime.year,now_datetime.month,
+            filename = '{:04d}{:02d}{:02d}{:02d}.csv'.format(now_datetime.year,now_datetime.month,
                                                                 now_datetime.day,now_datetime.hour)
-            df_final.to_pickle(osp.join(self.folder_path,filename))
+            df_final.to_csv(osp.join(self.folder_path,filename), index=False, date_format='%Y-%m-%d')
         
         return df_final
     
