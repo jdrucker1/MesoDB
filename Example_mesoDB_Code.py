@@ -35,7 +35,8 @@ db = mesoDB(mesoToken="abc123def456") # Replace "abc123def456" with your Mesowes
 # By default, the update function will get the last 3 hours of data from the United States area.
 # The user can specify the state or coordinates that they wish to grab data from, but it is
 # recommended to fill the data from the entire United States to maximize the user's Mesowest
-# token usage
+# token usage. The update paramaters are defined on db.update dictionary and the get parameters
+# are defined on db.params dictionary. Both are initially defined with the same default values.
 #
 db.update_DB()
 #
@@ -46,24 +47,29 @@ db.update_DB()
 # The coordinates can be defined using the lower-left and upper-right corner coordinates in WGS84
 # latitude and logitude degrees.
 #
-## db.params["country"] = None
-## db.params["state"] = "ca"
+## db.update["country"] = None
+## db.update["state"] = "ca"
 #
-## db.params["country"] = None
-## db.params["latitude1"] = 32.      # lower-left latitude (minimum latitude)
-## db.params["latitude2"] = 42.5     # upper-right latitude (maximum latitude)
-## db.params["longitude1"] = -125.   # lower-left longitude (minimum longitude)
-## db.params["longitude2"] = -112.   # lower-left corner latitude (maximum longitude)
+## db.update["country"] = None
+## db.update["latitude1"] = 32.      # lower-left latitude (minimum latitude)
+## db.update["latitude2"] = 42.5     # upper-right latitude (maximum latitude)
+## db.update["longitude1"] = -125.   # lower-left longitude (minimum longitude)
+## db.update["longitude2"] = -112.   # lower-left corner latitude (maximum longitude)
 #
 # The user can also specify the start and end times that they want their data from doing:
 #
-## db.set_start_datetime(2021,6,1) # where the arguments are (year, month, day)
-## db.set_end_datetime(2021,6,2)
+## db.set_start_time_update(2021,6,1) # where the arguments are (year, month, day)
+## db.set_end_time_update(2021,6,2)
+#
+# If the user wants to update the start and end times in both update and get parameters:
+#
+## db.set_start_time(2021,6,1) # where the arguments are (year, month, day)
+## db.set_end_time(2021,6,2)
 #
 # The user can also specify particular hours that they want doing:
 #
-## db.set_start_datetime(2021,6,1,0) # where the arguments are (year, month, day, hour)
-## db.set_end_datetime(2021,6,1,1)
+## db.set_start_time(2021,6,1,0) # where the arguments are (year, month, day, hour)
+## db.set_end_time(2021,6,1,1)
 
 
 # GET DATA FROM THE DATABASE
@@ -85,7 +91,12 @@ db.params["makeFile"] = True # This will save the data you get into a csv if you
 #
 mesoFrame = db.get_DB()
 #
+# If the user wants to change start and end time only for getting data:
+#
+##db.set_start_time_get(2021,6,1,0) # where the arguments are (year, month, day, hour)
+##db.set_end_time_get(2021,6,1,1)
+#
 # If the user just wants a CSV file with the results:
 #
-##db.params["makeFile"] = True      # This will set the queried data to only be from California
+##db.params["makeFile"] = True         # This will set the queried data to only be from California
 ##db.get_DB()
