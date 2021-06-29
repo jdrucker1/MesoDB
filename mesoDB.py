@@ -88,7 +88,8 @@ class mesoDB(object):
         self.update = {'startTime': startTime, 'endTime': endTime, 'country': 'us', 'state': None,
                             'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None}
         self.params = {'startTime': startTime, 'endTime': endTime, 'country': 'us', 'state': None,
-                        'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None, 'makeFile': False}
+                        'latitude1': None, 'latitude2': None, 'longitude1': None, 'longitude2': None, 
+                        'makeFile': False, 'updateDB': True}
         # general parameters
         self.realtime_length = 120 # length of current data in minutes
 
@@ -222,8 +223,6 @@ class mesoDB(object):
     #
     def is_realtime(self, utc_datetime):
         now = datetime.datetime.now(datetime.timezone.utc)
-        if now < utc_datetime:
-            raise mesoDBError('mesoDB.is_realtime - time must be defined in the past.')
         return (now - utc_datetime).total_seconds()/60 <= self.realtime_length
 
     # Save data from mesowest to the local database
@@ -238,7 +237,7 @@ class mesoDB(object):
         sts_pd = self.sites()
         sts_pd = sts_pd.append(sites[~sites.index.isin(sts_pd.index)])
         sts_pd.to_pickle(self.stations_path)
-        while start_utc < end_utc:
+        while start_utc <= end_utc:
             data_hour = data[data['datetime'].apply(meso_time) == meso_time(start_utc)]
             hour_path = self.hour_path(start_utc)
             if self.is_realtime(start_utc):
@@ -391,7 +390,7 @@ class mesoDB(object):
         tmp_end = end_utc.replace(hour=0,minute=0,second=0,microsecond=0)
         if (tmp_end-start_utc).total_seconds() > 60:
             self.get_meso_data_daily(start_utc, tmp_end)
-        if (end_utc-tmp_end).total_seconds() > 60:
+        if (tmp_end-start_utc).total_seconds() >= 0 and (end_utc-tmp_end).total_seconds() > 60:
             self.get_meso_data_hourly(tmp_end, end_utc)
 
     # Gets mesowest data from local database
@@ -406,11 +405,13 @@ class mesoDB(object):
         longitude1 = self.params.get('longitude1')
         longitude2 = self.params.get('longitude2')
         makeFile = self.params.get('makeFile')
+        updateDB = self.params.get('updateDB')
         # Check if the coordinates are valid
         lat1,lat2,lon1,lon2 = check_coords(latitude1, latitude2, longitude1, longitude2)
 
-        # Update database
-        self.update_DB()
+        if updateDB:
+            # Update database
+            self.update_DB()
 
         # Load station.pkl data and filter user options
         df_sites = self.sites()
@@ -437,6 +438,7 @@ class mesoDB(object):
                 df_local = pd.read_pickle(path + "_tmp")
             else:
                 logging.warning('mesoDB.get_DB - could not find data for time {}'.format(tmp_start))
+                tmp_start = tmp_start + datetime.timedelta(hours=1)
                 continue
             # Filter user options
             if lat1 != None:
@@ -450,14 +452,15 @@ class mesoDB(object):
         
         # Make sure there are no dates outside of interval (starting and ending minutes) and cleanup index
         df_final = pd.concat(data)
-        df_final = df_final[df_final['datetime'].between(startTime, endTime, inclusive=True)].reset_index(drop=True)
+        df_final = df_final[df_final['datetime'].between(startTime, endTime)].reset_index(drop=True)
         
         # If makeFile variable is true, create a pickle file with the requested data
         if makeFile:
             now_datetime = datetime.datetime.now()
-            filename = '{:04d}{:02d}{:02d}{:02d}.csv'.format(now_datetime.year,now_datetime.month,
-                                                                now_datetime.day,now_datetime.hour)
-            df_final.to_csv(osp.join(self.folder_path,filename), index=False, date_format='%Y-%m-%d')
+            filename = '{:04d}{:02d}{:02d}{:02d}'.format(now_datetime.year,now_datetime.month,
+                                                         now_datetime.day,now_datetime.hour)
+            df_final.to_csv(osp.join(self.folder_path,filename + '.csv'), index=False, date_format='%Y-%m-%d')
+            df_final.to_pickle(osp.join(self.folder_path,filename + '.pkl'), index=False, date_format='%Y-%m-%d')
         
         return df_final
     
