@@ -234,21 +234,22 @@ class mesoDB(object):
     #
     def save_to_DB(self, data, sites, start_utc, end_utc):
         logging.debug('mesoDB.save_to_DB - updating stations')
-        sts_pd = self.sites()
-        sts_pd = sts_pd.append(sites[~sites.index.isin(sts_pd.index)])
-        sts_pd.to_pickle(self.stations_path)
-        while start_utc <= end_utc:
-            data_hour = data[data['datetime'].apply(meso_time) == meso_time(start_utc)]
-            hour_path = self.hour_path(start_utc)
-            if self.is_realtime(start_utc):
-                ensure_dir(hour_path + '_tmp')
-                data_hour.reset_index(drop=True).to_pickle(hour_path + '_tmp')
-            else:
-                ensure_dir(hour_path)
-                data_hour.reset_index(drop=True).to_pickle(hour_path)
-                if osp.exists(hour_path + '_tmp'):
-                    os.remove(hour_path + '_tmp')
-            start_utc += datetime.timedelta(hours=1)
+        if len(data) > 0 and len(sites) > 0:
+            sts_pd = self.sites()
+            sts_pd = sts_pd.append(sites[~sites.index.isin(sts_pd.index)])
+            sts_pd.to_pickle(self.stations_path)
+            while start_utc <= end_utc:
+                data_hour = data[data['datetime'].apply(meso_time) == meso_time(start_utc)]
+                hour_path = self.hour_path(start_utc)
+                if self.is_realtime(start_utc):
+                    ensure_dir(hour_path + '_tmp')
+                    data_hour.reset_index(drop=True).to_pickle(hour_path + '_tmp')
+                else:
+                    ensure_dir(hour_path)
+                    data_hour.reset_index(drop=True).to_pickle(hour_path)
+                    if osp.exists(hour_path + '_tmp'):
+                        os.remove(hour_path + '_tmp')
+                start_utc += datetime.timedelta(hours=1)
 
     # Call MesoWest
     #
@@ -424,7 +425,6 @@ class mesoDB(object):
             stidLoc = df_sites[df_sites['STATE'].str.lower() == state.lower()].index.values
         # Create an empty dataframe which will hold all the data requested
         data = []
-        
         # Create temporary times to specify files that need to be read
         tmp_start = startTime.replace(minute=0,second=0,microsecond=0)
         tmp_end = (endTime+datetime.timedelta(hours=1)).replace(minute=0,second=0,microsecond=0)
@@ -451,8 +451,11 @@ class mesoDB(object):
             tmp_start = tmp_start + datetime.timedelta(hours=1)
         
         # Make sure there are no dates outside of interval (starting and ending minutes) and cleanup index
-        df_final = pd.concat(data)
-        df_final = df_final[df_final['datetime'].between(startTime, endTime)].reset_index(drop=True)
+        if len(data) > 0:
+            df_final = pd.concat(data)
+            df_final = df_final[df_final['datetime'].between(startTime, endTime)].reset_index(drop=True)
+        else:
+            df_final = pd.DataFrame([])
         
         # If makeFile variable is true, create a pickle file with the requested data
         if makeFile:

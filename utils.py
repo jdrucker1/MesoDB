@@ -42,6 +42,8 @@ def meso_time(utc_datetime):
 # @ Param utc_datetime - datetime in UTC
 #
 def meso_data_2_df(mesowestData):
+    if mesowestData is None:
+        return pd.DataFrame([]),pd.DataFrame([])
     site_keys = ['STID','LONGITUDE','LATITUDE','ELEVATION','STATE']
     site_dic = {key: [] for key in site_keys}
     data_keys = ['STID','datetime','fm10']
